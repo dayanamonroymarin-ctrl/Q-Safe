@@ -1,10 +1,15 @@
 /**
  * Q-SAFE Academy - Backend Engine
  * Desarrollado para Google Apps Script
+ * * Este archivo gestiona la lógica del servidor, la conexión con Google Sheets
+ * y la persistencia de datos de la plataforma educativa.
  */
 
 const SPREADSHEET_ID = SpreadsheetApp.getActiveSpreadsheet().getId();
 
+/**
+ * Función principal que sirve la interfaz web.
+ */
 function doGet() {
   setupDatabase(); // Asegura que las hojas existan al cargar
   return HtmlService.createHtmlOutputFromFile('Index')
@@ -14,7 +19,8 @@ function doGet() {
 }
 
 /**
- * Configuración inicial de la base de datos en Google Sheets
+ * Configuración inicial de la base de datos en Google Sheets.
+ * Crea las hojas automáticamente si no existen con sus encabezados.
  */
 function setupDatabase() {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -33,13 +39,20 @@ function setupDatabase() {
     if (!sheet) {
       sheet = ss.insertSheet(name);
       sheet.appendRow(sheets[name]);
-      sheet.getRange(1, 1, 1, sheets[name].length).setFontWeight("bold").setBackground("#1e293b").setFontColor("#ffffff");
+      
+      // Estilo para el encabezado
+      sheet.getRange(1, 1, 1, sheets[name].length)
+        .setFontWeight("bold")
+        .setBackground("#1e293b")
+        .setFontColor("#ffffff");
     }
   }
 }
 
 /**
- * Función genérica para guardar datos en cualquier hoja
+ * Función genérica para guardar datos en cualquier hoja.
+ * @param {string} sheetName Nombre de la hoja de destino.
+ * @param {Array} dataArray Arreglo con los datos a insertar.
  */
 function saveData(sheetName, dataArray) {
   try {
@@ -48,44 +61,73 @@ function saveData(sheetName, dataArray) {
     sheet.appendRow(dataArray);
     return { success: true, message: "Registro exitoso" };
   } catch (e) {
+    console.error("Error al guardar datos:", e.toString());
     return { success: false, message: e.toString() };
   }
 }
 
-// --- FUNCIONES ESPECÍFICAS ---
+// --- FUNCIONES DE NEGOCIO ESPECÍFICAS ---
 
+/**
+ * Registra un nuevo usuario en la hoja de Usuarios.
+ */
 function registrarUsuario(nombre, correo, plan) {
   const id = "USR-" + new Date().getTime();
   const fecha = new Date().toLocaleString();
   return saveData("Usuarios", [id, nombre, correo, plan, fecha]);
 }
 
+/**
+ * Registra un pago realizado por un usuario.
+ */
 function registrarPago(usuario, plan, valor, metodo) {
   const idPago = "PAY-" + Math.random().toString(36).substr(2, 9).toUpperCase();
   const fecha = new Date().toLocaleString();
   return saveData("Pagos", [idPago, usuario, plan, valor, metodo, fecha]);
 }
 
+/**
+ * Almacena los resultados del test de perfil inicial.
+ */
 function guardarTest(usuario, objetivo, nivel, disponibilidad, resultado) {
   return saveData("Test_Perfil", [usuario, objetivo, nivel, disponibilidad, resultado]);
 }
 
+/**
+ * Registra una solicitud de soporte técnico.
+ */
 function enviarSoporte(usuario, mensaje) {
   const fecha = new Date().toLocaleString();
   return saveData("Soporte", [usuario, mensaje, "Abierto", fecha]);
 }
 
 /**
- * Obtener datos para el Dashboard
+ * Obtiene datos dinámicos para mostrar en el Dashboard del estudiante.
+ * @returns {Object} Objeto con datos de ranking y vacantes.
  */
 function getDashboardData() {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   
-  const ranking = ss.getSheetByName("Ranking").getDataRange().getValues().slice(1);
-  const vacantes = ss.getSheetByName("Vacantes").getDataRange().getValues().slice(1);
+  // Obtener datos de Ranking
+  const rankingSheet = ss.getSheetByName("Ranking");
+  const rankingData = rankingSheet.getDataRange().getValues().slice(1);
+  
+  // Obtener datos de Vacantes
+  const vacantesSheet = ss.getSheetByName("Vacantes");
+  const vacantesData = vacantesSheet.getDataRange().getValues().slice(1);
   
   return {
-    ranking: ranking.map(r => ({ usuario: r[0], puntos: r[1], pos: r[2], badge: r[3] })),
-    vacantes: vacantes.map(v => ({ empresa: v[0], cargo: v[1], desc: v[2], link: v[3] }))
+    ranking: rankingData.map(r => ({ 
+      usuario: r[0], 
+      puntos: r[1], 
+      pos: r[2], 
+      badge: r[3] 
+    })),
+    vacantes: vacantesData.map(v => ({ 
+      empresa: v[0], 
+      cargo: v[1], 
+      desc: v[2], 
+      link: v[3] 
+    }))
   };
 }
